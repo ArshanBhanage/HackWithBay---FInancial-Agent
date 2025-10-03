@@ -23,6 +23,7 @@ class ValidationEngine:
         self.operational_data_table: Optional[pw.Table] = None
         self.alert_table: Optional[pw.Table] = None
         self._validation_callbacks: List[callable] = []
+        self._mock_mode = False
     
     def load_policy(self, policy: Policy) -> None:
         """Load a policy for validation."""
@@ -52,23 +53,40 @@ class ValidationEngine:
             logger.warning("No operational data table set up")
             return
         
-        # Create validation results table
-        validation_results = self.operational_data_table.select(
-            *self.operational_data_table,
-            validation_status="pending",
-            validation_errors=[],
-            validation_timestamp=datetime.utcnow(),
-            severity="LOW"
-        )
+        # NEW: guard when there are no rules
+        if not self.validation_rules:
+            self.alert_table = pw.Table.empty(
+                alert_id=str, type=str, severity=str, title=str, description=str,
+                contract_id=str, created_at=pw.DateTimeNaive, status=str,
+                rule_id=str, rule_type=str, expected_value=str, actual_value=str,
+            )
+            logger.info("No validation rules loaded; alert stream is empty.")
+            self._mock_mode = False
+            return
         
-        # Apply validation rules
-        for trigger, rules in self.validation_rules.items():
-            validation_results = self._apply_validation_rules(validation_results, rules, trigger)
-        
-        # Generate alerts for violations
-        self.alert_table = self._generate_alerts(validation_results)
-        
-        logger.info("Validation pipeline set up successfully")
+        try:
+            # Create validation results table
+            validation_results = self.operational_data_table.select(
+                *pw.this,                                  # pass through all original columns
+                validation_status="pending",               # constant string column
+                validation_timestamp=datetime.utcnow(),    # ok as a constant
+                severity="LOW"                             # constant string column
+            )
+            
+            # Apply validation rules
+            for trigger, rules in self.validation_rules.items():
+                validation_results = self._apply_validation_rules(validation_results, rules, trigger)
+            
+            # Generate alerts for violations
+            self.alert_table = self._generate_alerts(validation_results)
+            
+            logger.info("Validation pipeline set up successfully")
+            self._mock_mode = False
+        except Exception as e:
+            logger.warning(f"Pathway validation pipeline setup failed: {e}")
+            logger.info("Using mock validation mode - Pathway features disabled")
+            self.alert_table = None
+            self._mock_mode = True
     
     def _apply_validation_rules(self, data_table: pw.Table, rules: List[PolicyRule], trigger: str) -> pw.Table:
         """Apply validation rules to data table."""
@@ -82,19 +100,53 @@ class ValidationEngine:
     
     def _apply_single_rule(self, data_table: pw.Table, rule: PolicyRule) -> pw.Table:
         """Apply a single validation rule."""
-        # Create rule validation logic
-        rule_validation = pw.apply_with_type(
-            lambda row: self._validate_rule(row, rule),
-            dict,
-            data_table
+        # Map rule basis -> column name
+        field_mapping = {
+            "management_fee": "fee_rate",
+            "interest_rate": "interest_rate",
+            "reporting_requirement": "reporting_deadline",
+            "maturity_date": "maturity_date",
+        }
+        field_name = field_mapping.get(rule.basis, rule.basis)
+
+        # Pull the actual value as a column (if missing -> None)
+        # Anchor fallback to existing column to share universe
+        try:
+            actual_col = pw.this[field_name]
+        except KeyError:
+            # If column doesn't exist, anchor a None to an existing column
+            anchor = pw.this.validation_status  # any column from data_table
+            actual_col = pw.apply(lambda _: None, anchor)   # <-- anchored None
+
+        # Compute validity and error message as separate columns (column-wise apply)
+        is_valid_col = pw.apply(
+            lambda actual: self._check_rule_compliance(rule, actual)[0],
+            actual_col
         )
-        
-        # Update data table with validation results
+        error_msg_col = pw.apply(
+            lambda actual: self._check_rule_compliance(rule, actual)[1] or "",
+            actual_col
+        )
+
+        # Add/overwrite simple scalar columns, never tables/dicts
         data_table = data_table.select(
-            *data_table,
-            rule_validation=rule_validation
+            *pw.this,
+            rule_id=rule.id,
+            rule_type=rule.type,
+            rule_basis=rule.basis,
+            expected_value=str(rule.expected_value),
+            actual_value=actual_col,
+            rule_severity=rule.severity.value,
+            is_violation=~is_valid_col,                 # boolean column
+            violation_message=error_msg_col,
         )
-        
+
+        # Update validation_status with a **column expression**, not a table/dict
+        data_table = data_table.select(
+            *pw.this,
+            validation_status=pw.if_else(pw.this.is_violation, "violation", pw.this.validation_status)
+        )
+
         return data_table
     
     def _validate_rule(self, data_row: Dict[str, Any], rule: PolicyRule) -> Dict[str, Any]:
@@ -181,37 +233,52 @@ class ValidationEngine:
     
     def _generate_alerts(self, validation_results: pw.Table) -> pw.Table:
         """Generate alerts from validation results."""
-        # Filter for violations
-        violations = validation_results.filter(
-            pw.this.validation_status == "violation"
-        )
-        
-        # Create alerts
+        # If rules didn't run, there's no is_violation; return a declared-empty table
+        try:
+            _ = validation_results.is_violation
+            has_violation_flag = True
+        except (KeyError, AttributeError):
+            has_violation_flag = False
+
+        if not has_violation_flag:
+            return pw.Table.empty(
+                alert_id=str, type=str, severity=str, title=str, description=str,
+                contract_id=str, created_at=pw.DateTimeNaive, status=str,
+                rule_id=str, rule_type=str, expected_value=str, actual_value=str,
+            )
+
+        # Filter on boolean column that exists only if rules ran
+        violations = validation_results.filter(pw.this.is_violation)
+
+        # Helper to build an ID per row from rule_id + timestamp (keeps your Python code)
+        def _mk_id(rule_id: str) -> str:
+            import hashlib, time
+            content = f"{rule_id}_{time.time()}"
+            return hashlib.md5(content.encode()).hexdigest()[:16]
+
+        # Use safe column access with defaults for missing columns
         alerts = violations.select(
-            alert_id=pw.apply_with_type(
-                lambda row: self._generate_alert_id(row),
-                str,
-                violations
-            ),
+            alert_id=pw.apply(_mk_id, pw.coalesce(pw.this.rule_id, "unknown")),
             type="rule_violation",
-            severity=pw.this.severity,
-            title=pw.apply_with_type(
-                lambda row: f"Rule Violation: {row.get('rule_id', 'unknown')}",
-                str,
-                violations
-            ),
-            description=pw.this.rule_validation.error_message,
-            contract_id=pw.this.contract_id,
+            severity=pw.coalesce(pw.this.rule_severity, "LOW"),
+            title=pw.apply(lambda rid: f"Rule Violation: {rid}", pw.coalesce(pw.this.rule_id, "unknown")),
+            description=pw.coalesce(pw.this.violation_message, "Unknown violation"),
+            contract_id=pw.coalesce(pw.this.contract_id, "unknown"),
             created_at=datetime.utcnow(),
-            status="new"
+            status="new",
+            # optional: include useful passthroughs
+            rule_id=pw.coalesce(pw.this.rule_id, "unknown"),
+            rule_type=pw.coalesce(pw.this.rule_type, "unknown"),
+            expected_value=pw.coalesce(pw.this.expected_value, "unknown"),
+            actual_value=pw.coalesce(pw.this.actual_value, "unknown"),
         )
-        
         return alerts
     
     def _generate_alert_id(self, row: Dict[str, Any]) -> str:
         """Generate unique alert ID."""
         import hashlib
-        content = f"{row.get('rule_id', 'unknown')}_{datetime.utcnow().isoformat()}"
+        rule_id = row.get("rule_validation", {}).get("rule_id", "unknown")
+        content = f"{rule_id}_{datetime.utcnow().isoformat()}"
         return hashlib.md5(content.encode()).hexdigest()[:16]
     
     def add_validation_callback(self, callback: callable) -> None:
