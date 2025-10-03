@@ -1,0 +1,6 @@
+investor,contract,fee_rate,expected_rate,status
+Institution A,SideLetter_InstitutionA.pdf,2.00%,1.75%,VIOLATION
+Foundation B,SideLetter_FoundationB.pdf,1.75%,1.75%,COMPLIANT
+All Investors,LPA_v3.pdf,1.75%,1.75%,COMPLIANT
+Pension Fund C,Standard_Agreement.pdf,1.80%,1.75%,VIOLATION
+Endowment D,Special_Terms.pdf,1.75%,1.75%,COMPLIANT

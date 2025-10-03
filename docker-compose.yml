@@ -1,0 +1,57 @@
+version: '3.8'
+
+services:
+  financial-contract-monitor:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql://postgres:password@db:5432/financial_contracts
+      - REDIS_URL=redis://redis:6379/0
+      - PATHWAY_RUNTIME_URL=http://pathway:8080
+      - LANDINGAI_API_KEY=${LANDINGAI_API_KEY}
+      - PATHWAY_API_KEY=${PATHWAY_API_KEY}
+      - API_SECRET_KEY=${API_SECRET_KEY}
+      - WEBHOOK_SECRET=${WEBHOOK_SECRET}
+      - SLACK_WEBHOOK_URL=${SLACK_WEBHOOK_URL}
+      - CRM_WEBHOOK_URL=${CRM_WEBHOOK_URL}
+    volumes:
+      - ./uploads:/app/uploads
+      - ./processed:/app/processed
+      - ./streaming_output:/app/streaming_output
+    depends_on:
+      - db
+      - redis
+    restart: unless-stopped
+
+  db:
+    image: postgres:15
+    environment:
+      - POSTGRES_DB=financial_contracts
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=password
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+
+  pathway:
+    image: pathwaycom/pathway:latest
+    ports:
+      - "8080:8080"
+    environment:
+      - PATHWAY_RUNTIME_URL=http://localhost:8080
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  redis_data:
