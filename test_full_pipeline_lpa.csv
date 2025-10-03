@@ -1,0 +1,8 @@
+document_type,field_name,field_value,page_number,text_snippet
+LPA,management_fee_rate,1.75,1,"Management fee of 1.75% per annum"
+LPA,reporting_deadline_days,5,2,"Quarterly reports due within 5 business days"
+LPA,prohibited_sectors,"SIC 7372,NAICS 511210",3,"No investments in software companies"
+LPA,effective_date,2025-01-01,1,"Effective as of January 1, 2025"
+LPA,general_partner,Alpha GP LLC,1,"General Partner: Alpha GP LLC"
+LPA,fund_name,Alpha Fund LPA,1,"Alpha Fund Limited Partnership"
+LPA,interest_rate,5.25,4,"Interest rate of 5.25% per annum"

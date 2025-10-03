@@ -129,36 +129,4 @@ CREATE INDEX IF NOT EXISTS idx_processing_jobs_status ON processing_jobs(status)
 CREATE INDEX IF NOT EXISTS idx_audit_log_entity ON audit_log(entity_type, entity_id);
 CREATE INDEX IF NOT EXISTS idx_audit_log_created_at ON audit_log(created_at);
 
--- Insert default policy
-INSERT OR IGNORE INTO policies (id, name, version, description, rules) VALUES (
-    'default_policy_1',
-    'Default Financial Contract Policy',
-    '1.0.0',
-    'Default policy for financial contract compliance monitoring',
-    '[
-        {
-            "rule_id": "FEE_RATE_CHECK",
-            "rule_type": "fee.rate_percent",
-            "applies_to": "ALL",
-            "expected_value": "1.75%",
-            "enforcement": "alert_if_mismatch",
-            "severity": "HIGH"
-        },
-        {
-            "rule_id": "REPORTING_DEADLINE",
-            "rule_type": "reporting.deadline_days",
-            "applies_to": "ALL", 
-            "expected_value": "5",
-            "enforcement": "alert_if_mismatch",
-            "severity": "MEDIUM"
-        },
-        {
-            "rule_id": "PROHIBITED_SECTOR",
-            "rule_type": "allocation.prohibited_sector",
-            "applies_to": "ALL",
-            "expected_value": "SIC:7372",
-            "enforcement": "alert_if_mismatch",
-            "severity": "HIGH"
-        }
-    ]'
-);
+-- No default policy - start with clean slate

@@ -16,8 +16,11 @@ class Settings(BaseSettings):
     landingai_api_key: Optional[str] = None
     landingai_base_url: str = "https://api.landing.ai"
     
+    # AI Agent Configuration
+    anthropic_api_key: Optional[str] = None
+    
     # Database Configuration
-    database_url: str = "postgresql://user:password@localhost:5432/financial_contracts"
+    database_url: str = "sqlite:///financial_contracts.db"
     redis_url: str = "redis://localhost:6379/0"
     
     # API Configuration

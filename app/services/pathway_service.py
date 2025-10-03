@@ -78,8 +78,17 @@ class PathwayService:
             title=str,
             description=str,
             contract_id=str,
-            created_at=pw.DateTimeNaive,
-            status=str
+            created_at=str,  # Changed to str to match validation engine
+            status=str,
+            rule_id=str,
+            rule_type=str,
+            expected_value=str,
+            actual_value=str,
+            entity_id=str,
+            investor_name=str,
+            evidence_doc=str,
+            evidence_page=int,
+            evidence_snippet=str,
         )
         
         return self.alert_table

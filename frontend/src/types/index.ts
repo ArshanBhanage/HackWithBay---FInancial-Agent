@@ -4,7 +4,8 @@ export type Status = "OPEN" | "ACK" | "RESOLVED";
 
 export interface Violation {
   id: string;
-  detectedAt: string; // ISO
+  detectedAt?: string; // ISO
+  created_at?: string; // ISO - for compatibility
   investor: string;
   contract: string;
   ruleId: string;
@@ -13,6 +14,7 @@ export interface Violation {
   actual: string;
   severity: Severity;
   status: Status;
+  message?: string; // for compatibility
   evidence: {
     doc: string;
     page: number;
@@ -64,8 +66,10 @@ export interface Alert {
 
 export interface Policy {
   id: string;
+  policy_id?: string; // for compatibility
   name: string;
   version: string;
+  description?: string; // for compatibility
   rules: PolicyRule[];
   createdAt: string;
   updatedAt: string;

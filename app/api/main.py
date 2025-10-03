@@ -18,6 +18,9 @@ from ..services.pathway_service import PathwayService
 from ..services.landingai_service import LandingAIService
 from ..services.drift_detector import DriftDetector
 from ..services.policy_compiler import PolicyCompiler
+from ..services.rule_compiler import RuleCompiler
+from ..services.ai_rule_agent import AIRuleAgent
+from ..services.pathway_violation_agent import PathwayViolationAgent
 from ..services.validation_engine import ValidationEngine
 from ..services.notification_service import NotificationService
 from ..services.database_service import database_service
@@ -35,6 +38,9 @@ pathway_service: Optional[PathwayService] = None
 landingai_service: Optional[LandingAIService] = None
 drift_detector: Optional[DriftDetector] = None
 policy_compiler: Optional[PolicyCompiler] = None
+rule_compiler: Optional[RuleCompiler] = None
+ai_rule_agent: Optional[AIRuleAgent] = None
+pathway_violation_agent: Optional[PathwayViolationAgent] = None
 validation_engine: Optional[ValidationEngine] = None
 notification_service: Optional[NotificationService] = None
 webhook_handler: Optional[WebhookHandler] = None
@@ -43,7 +49,7 @@ webhook_handler: Optional[WebhookHandler] = None
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan manager."""
-    global pathway_service, landingai_service, drift_detector, policy_compiler, validation_engine, notification_service, webhook_handler
+    global pathway_service, landingai_service, drift_detector, policy_compiler, rule_compiler, ai_rule_agent, pathway_violation_agent, validation_engine, notification_service, webhook_handler
     
     # Initialize services
     logger.info("Initializing services...")
@@ -51,6 +57,9 @@ async def lifespan(app: FastAPI):
     landingai_service = LandingAIService()
     drift_detector = DriftDetector()
     policy_compiler = PolicyCompiler()
+    rule_compiler = RuleCompiler()
+    ai_rule_agent = AIRuleAgent()
+    pathway_violation_agent = PathwayViolationAgent()
     validation_engine = ValidationEngine()
     notification_service = NotificationService()
     webhook_handler = WebhookHandler(notification_service)
@@ -136,13 +145,71 @@ async def process_uploaded_document(version: ContractVersion, document_data: Dic
     try:
         logger.info(f"Processing document: {version.document_path}")
         
-        # Extract document using LandingAI
+        # Step 1: Extract document using LandingAI ADE
         extracted_fields = []
-        if landingai_service:
+        landingai_data = None
+        
+        if not landingai_service:
+            raise ValueError("LandingAI service is required for document processing")
+        
+        try:
+            # Extract structured fields for traditional processing
             extracted_fields = await landingai_service.extract_document(
                 version.document_path,
                 document_data.get("document_type", "other")
             )
+            
+            # Extract structured data for AI processing
+            landingai_data = await landingai_service.extract_document_for_ai(
+                version.document_path,
+                document_data.get("document_type", "other")
+            )
+            logger.info(f"LandingAI extracted data with {len(landingai_data.get('extracted_fields', []))} fields")
+            
+        except Exception as e:
+            logger.error(f"LandingAI extraction failed: {e}")
+            raise
+        
+        # Step 2: Create rules using Claude AI from LandingAI data
+        rule_candidates = []
+        if not ai_rule_agent:
+            raise ValueError("AI Rule Agent is required for rule creation")
+        
+        try:
+            rule_candidates = await ai_rule_agent.create_rules_from_landingai_data(landingai_data)
+            logger.info(f"Claude AI created {len(rule_candidates)} rule candidates from LandingAI data")
+        except Exception as e:
+            logger.error(f"Claude AI rule creation failed: {e}")
+            raise
+        
+        # Step 3: Compile rules into policies
+        compiled_rules = []
+        if not rule_compiler:
+            raise ValueError("Rule Compiler is required for policy compilation")
+        
+        try:
+            compiled_rules = rule_compiler.compile_rules(rule_candidates)
+            logger.info(f"Compiled {len(compiled_rules)} rules into policies")
+        except Exception as e:
+            logger.error(f"Rule compilation failed: {e}")
+            raise
+        
+        # Step 4: Create and store policy
+        try:
+            policy_id = f"landingai_claude_policy_{document_data['document_id']}_{datetime.utcnow().timestamp()}"
+            policy = rule_compiler.create_policy_from_rules(compiled_rules, policy_id)
+            
+            # Load policy into validation engine for Pathway processing
+            validation_engine.load_policy(policy)
+            
+            # Store policy in database
+            database_service.create_policy(policy.model_dump())
+            
+            logger.info(f"Created policy {policy_id} with {len(compiled_rules)} rules")
+            
+        except Exception as e:
+            logger.error(f"Policy creation/storage failed: {e}")
+            raise
         
         # Update document status in database
         database_service.update_document_status(
@@ -431,23 +498,98 @@ async def compile_policy(policy_data: Dict[str, Any]):
 async def list_alerts(
     status: Optional[str] = None,
     severity: Optional[str] = None,
-    limit: int = 100
+    limit: int = 100,
+    ai_prioritized: bool = False
 ):
-    """List alerts with optional filtering."""
+    """List alerts with optional filtering and AI prioritization."""
     try:
         alerts = database_service.get_alerts(limit=limit, severity=severity, status=status)
+        
+        # Apply AI prioritization if requested
+        if ai_prioritized and ai_rule_agent:
+            try:
+                alerts = await ai_rule_agent.prioritize_alerts(alerts)
+                logger.info(f"AI prioritized {len(alerts)} alerts")
+            except Exception as e:
+                logger.error(f"AI prioritization failed: {e}")
+        
         return {
             "alerts": alerts,
             "total": len(alerts),
             "filters": {
                 "status": status,
                 "severity": severity,
-                "limit": limit
+                "limit": limit,
+                "ai_prioritized": ai_prioritized
             }
         }
     except Exception as e:
         logger.error(f"Error fetching alerts: {e}")
         raise HTTPException(status_code=500, detail="Failed to fetch alerts")
+
+
+@app.post("/ai/analyze-compliance")
+async def analyze_compliance_ai(
+    operational_data: Dict[str, Any]
+):
+    """AI-powered compliance analysis of operational data against policies."""
+    try:
+        if not ai_rule_agent:
+            raise HTTPException(status_code=503, detail="AI agent not available")
+        
+        # Get current policies
+        policies_data = database_service.get_policies()
+        policies = []
+        
+        # Convert to PolicyRule objects (simplified for demo)
+        for policy_data in policies_data:
+            # This would need proper deserialization in production
+            pass
+        
+        # Use AI agent for violation analysis
+        violations = await ai_rule_agent.analyze_compliance_violations(operational_data, policies)
+        
+        return {
+            "violations": violations,
+            "total_violations": len(violations),
+            "analysis_timestamp": datetime.utcnow().isoformat(),
+            "ai_powered": True
+        }
+        
+    except Exception as e:
+        logger.error(f"Error in AI compliance analysis: {e}")
+        raise HTTPException(status_code=500, detail="Failed to analyze compliance")
+
+
+@app.post("/ai/prioritize-alerts")
+async def prioritize_alerts_ai(
+    alert_ids: List[str]
+):
+    """AI-powered alert prioritization."""
+    try:
+        if not ai_rule_agent:
+            raise HTTPException(status_code=503, detail="AI agent not available")
+        
+        # Get alerts by IDs
+        alerts = []
+        for alert_id in alert_ids:
+            alert = database_service.get_alert_by_id(alert_id)
+            if alert:
+                alerts.append(alert)
+        
+        # Use AI agent for prioritization
+        prioritized_alerts = await ai_rule_agent.prioritize_alerts(alerts)
+        
+        return {
+            "prioritized_alerts": prioritized_alerts,
+            "total_alerts": len(prioritized_alerts),
+            "prioritization_timestamp": datetime.utcnow().isoformat(),
+            "ai_powered": True
+        }
+        
+    except Exception as e:
+        logger.error(f"Error in AI alert prioritization: {e}")
+        raise HTTPException(status_code=500, detail="Failed to prioritize alerts")
 
 
 @app.get("/dashboard/stats")

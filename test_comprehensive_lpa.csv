@@ -1,0 +1,7 @@
+document_type,field_name,field_value,page_number
+LPA,management_fee_rate,1.75,1
+LPA,reporting_deadline_days,5,2
+LPA,prohibited_sectors,"SIC 7372,NAICS 511210",3
+LPA,effective_date,2025-01-01,1
+LPA,general_partner,Alpha GP LLC,1
+LPA,fund_name,Alpha Fund LPA,1

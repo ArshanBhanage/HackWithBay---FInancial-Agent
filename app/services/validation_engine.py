@@ -57,8 +57,9 @@ class ValidationEngine:
         if not self.validation_rules:
             self.alert_table = pw.Table.empty(
                 alert_id=str, type=str, severity=str, title=str, description=str,
-                contract_id=str, created_at=pw.DateTimeNaive, status=str,
+                contract_id=str, created_at=str, status=str,
                 rule_id=str, rule_type=str, expected_value=str, actual_value=str,
+                entity_id=str, investor_name=str, evidence_doc=str, evidence_page=int, evidence_snippet=str,
             )
             logger.info("No validation rules loaded; alert stream is empty.")
             self._mock_mode = False
@@ -70,7 +71,10 @@ class ValidationEngine:
                 *pw.this,                                  # pass through all original columns
                 validation_status="pending",               # constant string column
                 validation_timestamp=datetime.utcnow(),    # ok as a constant
-                severity="LOW"                             # constant string column
+                severity="LOW",                            # constant string column
+                # Derive entity_id from contract filename for now
+                entity_id=pw.apply(lambda path: self._extract_entity_id(path), pw.this.path),
+                investor_name=pw.apply(lambda path: self._extract_investor_name(path), pw.this.path)
             )
             
             # Apply validation rules
@@ -100,31 +104,39 @@ class ValidationEngine:
     
     def _apply_single_rule(self, data_table: pw.Table, rule: PolicyRule) -> pw.Table:
         """Apply a single validation rule."""
-        # Map rule basis -> column name
+        # Map rule basis -> operational data column name
         field_mapping = {
             "management_fee": "fee_rate",
+            "reporting_requirement": "report_delay_days", 
             "interest_rate": "interest_rate",
-            "reporting_requirement": "reporting_deadline",
-            "maturity_date": "maturity_date",
+            "mfn": "mfn_threshold_bps",  # For MFN threshold
+            "allocation": "prohibited_sectors",
         }
-        field_name = field_mapping.get(rule.basis, rule.basis)
+        field_name = field_mapping.get(rule.basis, "path")  # Default to path column
+        
+        # Ensure field_name is not None
+        if field_name is None:
+            field_name = "path"
 
         # Pull the actual value as a column (if missing -> None)
-        # Anchor fallback to existing column to share universe
+        # Use getattr to safely access column attributes
         try:
-            actual_col = pw.this[field_name]
-        except KeyError:
+            actual_col = getattr(pw.this, field_name)
+        except AttributeError:
             # If column doesn't exist, anchor a None to an existing column
             anchor = pw.this.validation_status  # any column from data_table
             actual_col = pw.apply(lambda _: None, anchor)   # <-- anchored None
 
         # Compute validity and error message as separate columns (column-wise apply)
-        is_valid_col = pw.apply(
+        # Use explicit type hints to help Pathway infer types
+        is_valid_col = pw.apply_with_type(
             lambda actual: self._check_rule_compliance(rule, actual)[0],
+            bool,
             actual_col
         )
-        error_msg_col = pw.apply(
+        error_msg_col = pw.apply_with_type(
             lambda actual: self._check_rule_compliance(rule, actual)[1] or "",
+            str,
             actual_col
         )
 
@@ -139,12 +151,6 @@ class ValidationEngine:
             rule_severity=rule.severity.value,
             is_violation=~is_valid_col,                 # boolean column
             violation_message=error_msg_col,
-        )
-
-        # Update validation_status with a **column expression**, not a table/dict
-        data_table = data_table.select(
-            *pw.this,
-            validation_status=pw.if_else(pw.this.is_violation, "violation", pw.this.validation_status)
         )
 
         return data_table
@@ -257,23 +263,64 @@ class ValidationEngine:
             return hashlib.md5(content.encode()).hexdigest()[:16]
 
         # Use safe column access with defaults for missing columns
+        # Cast columns to proper types before using coalesce
         alerts = violations.select(
-            alert_id=pw.apply(_mk_id, pw.coalesce(pw.this.rule_id, "unknown")),
+            alert_id=pw.apply(_mk_id, pw.this.rule_id),
             type="rule_violation",
-            severity=pw.coalesce(pw.this.rule_severity, "LOW"),
-            title=pw.apply(lambda rid: f"Rule Violation: {rid}", pw.coalesce(pw.this.rule_id, "unknown")),
-            description=pw.coalesce(pw.this.violation_message, "Unknown violation"),
-            contract_id=pw.coalesce(pw.this.contract_id, "unknown"),
-            created_at=datetime.utcnow(),
+            severity=pw.this.rule_severity,
+            title=pw.apply(lambda rid: f"Rule Violation: {rid}", pw.this.rule_id),
+            description=pw.this.violation_message,
+            contract_id=pw.this.path,
+            # Use ISO-8601 UTC format with Z suffix to prevent negative time display
+            created_at=pw.apply(lambda _: datetime.utcnow().isoformat() + "Z", pw.this.validation_status),
             status="new",
-            # optional: include useful passthroughs
-            rule_id=pw.coalesce(pw.this.rule_id, "unknown"),
-            rule_type=pw.coalesce(pw.this.rule_type, "unknown"),
-            expected_value=pw.coalesce(pw.this.expected_value, "unknown"),
-            actual_value=pw.coalesce(pw.this.actual_value, "unknown"),
+            # Include fields needed by frontend
+            rule_id=pw.this.rule_id,
+            rule_type=pw.this.rule_type,
+            expected_value=pw.this.expected_value,
+            actual_value=pw.this.actual_value,
+            # Add entity information
+            entity_id=pw.this.entity_id,
+            investor_name=pw.this.investor_name,
+            # Add evidence fields
+            evidence_doc=pw.this.path,
+            evidence_page=pw.apply(lambda _: 1, pw.this.validation_status),  # Default to page 1
+            evidence_snippet=pw.this.violation_message,
         )
         return alerts
     
+    def _extract_entity_id(self, file_path: str) -> str:
+        """Extract entity ID from contract filename."""
+        import os
+        filename = os.path.basename(file_path)
+        
+        # Extract entity from filename patterns
+        if "FoundationB" in filename:
+            return "foundation_b"
+        elif "InstitutionA" in filename:
+            return "institution_a"
+        elif "LPA" in filename:
+            return "lpa_fund"
+        else:
+            # Default fallback
+            return filename.replace(".pdf", "").replace(".csv", "").lower()
+    
+    def _extract_investor_name(self, file_path: str) -> str:
+        """Extract investor name from contract filename."""
+        import os
+        filename = os.path.basename(file_path)
+        
+        # Extract investor from filename patterns
+        if "FoundationB" in filename:
+            return "Foundation B"
+        elif "InstitutionA" in filename:
+            return "Institution A"
+        elif "LPA" in filename:
+            return "LPA Fund"
+        else:
+            # Default fallback
+            return filename.replace(".pdf", "").replace(".csv", "").replace("_", " ").title()
+
     def _generate_alert_id(self, row: Dict[str, Any]) -> str:
         """Generate unique alert ID."""
         import hashlib

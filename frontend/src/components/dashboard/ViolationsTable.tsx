@@ -99,7 +99,7 @@ export function ViolationsTable({
                   <td className="p-3">{violation.actual}</td>
                   <td className="p-3">{statusPill(violation.status)}</td>
                   <td className="p-3 text-xs text-muted-foreground">
-                    {formatRelativeTime(violation.detectedAt)}
+                    {formatRelativeTime(violation.detectedAt || violation.created_at || new Date().toISOString())}
                   </td>
                   <td className="p-3">
                     <div className="flex gap-2">

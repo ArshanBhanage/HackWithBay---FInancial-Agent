@@ -14,6 +14,10 @@ from dotenv import load_dotenv
 
 from ..config import settings
 from ..models.contract import ContractField, ContractVersion, ContractStatus
+from .landingai_rule_helpers import (
+    classify_document_type, extract_parties, extract_effective_date,
+    extract_candidates_from_result, extract_csv_rule_candidates, mock_rule_candidates
+)
 
 logger = logging.getLogger(__name__)
 
@@ -56,6 +60,49 @@ class LandingAIService:
         except Exception as e:
             logger.error(f"Error extracting document {file_path}: {e}")
             return []
+    
+    async def extract_document_for_ai(self, file_path: str, document_type: str) -> Dict[str, Any]:
+        """Extract structured document data for AI rule processing."""
+        logger.info(f"Extracting document data for AI processing: {file_path}")
+        
+        if not self.api_key:
+            raise ValueError("LandingAI API key required for document extraction")
+        
+        try:
+            # Extract using LandingAI ADE DPT-2 API
+            result = await self._extract_with_retry(file_path)
+            
+            # Extract document metadata
+            doc_id = Path(file_path).name
+            doc_class = classify_document_type(doc_id, document_type)
+            parties = extract_parties(result, doc_class)
+            effective_date = extract_effective_date(result, file_path)
+            
+            # Structure the data for Claude processing
+            structured_data = {
+                "document_id": doc_id,
+                "document_class": doc_class,
+                "document_type": document_type,
+                "effective_date": effective_date,
+                "parties": parties,
+                "extracted_fields": result.get("fields", []),
+                "chunks": result.get("chunks", []),
+                "splits": result.get("splits", []),
+                "tables": result.get("tables", []),
+                "raw_content": result.get("markdown", result.get("text", "")),
+                "metadata": {
+                    "extraction_timestamp": datetime.utcnow().isoformat(),
+                    "file_path": file_path,
+                    "extraction_method": "landingai_ade_dpt2"
+                }
+            }
+            
+            logger.info(f"Extracted structured data from {doc_id} with {len(structured_data['extracted_fields'])} fields")
+            return structured_data
+            
+        except Exception as e:
+            logger.error(f"Error extracting document data from {file_path}: {e}")
+            raise
     
     async def extract_table_data(self, file_path: str, table_config: Dict[str, Any]) -> List[ContractField]:
         """Extract structured data from tables within documents."""

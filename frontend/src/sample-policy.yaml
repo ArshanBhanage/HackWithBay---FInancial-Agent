@@ -1,0 +1,99 @@
+policy_id: 0f0fd9a8-a712-43b3-b16f-861cbdef5a75
+name: Policy from omnibus_final_policy
+version: 1.0.0
+description: Compiled policy with 5 rules
+ontology_version: "o2a.v0.2"
+source_documents:
+  - name: Omnibus_Financial_Agreement_v1.pdf
+    hash: "demo"
+
+rules:
+  # Fund-wide management fee 1.75% (decimal)
+  - id: R_2b2d6424b6
+    type: fee.rate_percent
+    basis: management_fee
+    applies_to: ALL_INVESTORS
+    expected_value: 0.0175
+    effective_period: 
+      start: "2025-10-03T14:34:37.950266Z"
+      end: null
+    evidence:
+      doc: Omnibus_Financial_Agreement_v1.pdf
+      page: 1
+      text_snippet: "Management fee shall be one point seven five percent (1.75%) of Net Asset Value (NAV), billed quarterly in advance."
+    severity: HIGH
+    enforcement:
+      when: on_fee_calculation_post
+      action: alert_if_mismatch
+
+  # Reporting: quarterly reports within 5 business days
+  - id: R_7165ec1b2e
+    type: reporting.deadline_days
+    basis: reporting_requirement
+    applies_to: ALL_INVESTORS
+    expected_value: 5
+    effective_period:
+      start: "2025-10-03T14:34:37.950266Z"
+      end: null
+    evidence:
+      doc: Omnibus_Financial_Agreement_v1.pdf
+      page: 1
+      text_snippet: "Quarterly reports shall be delivered within five (5) business days following quarter end."
+    severity: MEDIUM
+    enforcement:
+      when: on_report_generated
+      action: alert_if_missed
+
+  # MFN: threshold is 10 bps (separate from notice deadline)
+  - id: R_bf5b628ba2
+    type: mfn.threshold_bps
+    basis: mfn
+    applies_to: ALL_INVESTORS
+    expected_value: 10
+    effective_period:
+      start: "2025-10-03T14:34:37.950266Z"
+      end: null
+    evidence:
+      doc: Omnibus_Financial_Agreement_v1.pdf
+      page: 1
+      text_snippet: "The GP shall notify LPs of any side letter granting economic terms more favorable by ≥10 bps within ten (10) days of execution."
+    severity: LOW
+    enforcement:
+      when: on_sideletter_ingested
+      action: alert_if_mismatch
+
+  # MFN: notice due within 10 days (deadline rule)
+  - id: R_8b6c7fc8b3
+    type: mfn.notice_deadline_days
+    basis: mfn
+    applies_to: ALL_INVESTORS
+    expected_value: 10
+    effective_period:
+      start: "2025-10-03T14:34:37.950266Z"
+      end: null
+    evidence:
+      doc: Omnibus_Financial_Agreement_v1.pdf
+      page: 1
+      text_snippet: "The GP shall notify LPs of any side letter granting economic terms more favorable by ≥10 bps within ten (10) days of execution."
+    severity: LOW
+    enforcement:
+      when: on_sideletter_ingested
+      action: alert_if_missed
+
+  # Interest rate 7% — include if you validate interest
+  - id: R_8c46531c3d
+    type: interest.rate_percent
+    basis: interest_rate
+    applies_to: ALL_INVESTORS
+    expected_value: 0.07
+    effective_period:
+      start: "2025-10-03T14:34:37.950266Z"
+      end: null
+    evidence:
+      doc: Omnibus_Financial_Agreement_v1.pdf
+      page: 1
+      text_snippet: "Interest Rate: 7.00% fixed until maturity. Interest shall be calculated on a 30/360 basis."
+    severity: HIGH
+    enforcement:
+      when: on_interest_post
+      action: alert_if_mismatch

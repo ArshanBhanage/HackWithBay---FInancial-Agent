@@ -10,6 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Violation, TimeSeriesData } from '@/types'
 import { getViolations, getViolationsTimeSeries, acknowledgeViolation, getContracts, getPolicies, getDashboardStats } from '@/services/api'
 import { createWebSocketConnection } from '@/services/api'
+import YamlToTables from '@/components/YamlToTables'
 
 export default function App() {
   const [violations, setViolations] = useState<Violation[]>([])
@@ -488,6 +489,9 @@ ${rules.map((rule: any) => `  - id: ${rule.rule_id || rule.id}
           )}
         </section>
       </main>
+
+      {/* YAML Viewer Section */}
+      <YamlToTables />
 
       {/* Footer */}
       <footer className="border-t py-6 text-center text-xs text-muted-foreground">

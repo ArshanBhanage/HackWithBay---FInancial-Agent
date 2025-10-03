@@ -22,7 +22,8 @@ class RuleType(str, Enum):
     FEE_AMOUNT = "fee.amount"
     REPORTING_DEADLINE = "reporting.deadline_days"
     ALLOCATION_RESTRICTION = "allocation.prohibited_sector"
-    MFN_NOTICE = "mfn.notice_required"
+    MFN_THRESHOLD = "mfn.threshold_bps"
+    MFN_NOTICE = "mfn.notice_deadline_days"
     COVENANT = "covenant.requirement"
     COLLATERAL = "collateral.requirement"
     INTEREST_RATE = "interest.rate_percent"
@@ -64,6 +65,9 @@ class ConflictCheck(BaseModel):
 class Policy(BaseModel):
     """Policy pack containing rules and conflict checks."""
     policy_id: str
+    name: str = Field(default="")
+    version: str = Field(default="1.0.0")
+    description: Optional[str] = Field(default="")
     generated_at: datetime
     source_documents: List[Dict[str, str]]  # name/hash pairs
     ontology_version: str = "o2a.v0.2"

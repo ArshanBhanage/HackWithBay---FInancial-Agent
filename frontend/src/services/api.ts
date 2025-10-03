@@ -29,18 +29,18 @@ export const getViolations = async (params?: {
     return alerts.map((alert: any) => ({
       id: alert.alert_id,
       detectedAt: alert.created_at,
-      investor: 'Unknown',
-      contract: 'Unknown',
-      ruleId: alert.alert_id,
-      ruleType: 'compliance_check',
-      expected: 'N/A',
-      actual: 'N/A',
+      investor: alert.investor_name || 'Unknown',
+      contract: alert.contract_id || 'Unknown',
+      ruleId: alert.rule_id || alert.alert_id,
+      ruleType: alert.rule_type || 'unknown',
+      expected: alert.expected_value || 'N/A',
+      actual: alert.actual_value || 'N/A',
       severity: alert.severity,
       status: alert.status,
       evidence: {
-        doc: 'Unknown',
-        page: 1,
-        text: alert.message
+        doc: alert.evidence_doc || 'Unknown',
+        page: alert.evidence_page || 1,
+        text: alert.evidence_snippet || alert.description || 'No evidence available'
       }
     }))
   } catch (error) {
