@@ -1,0 +1,1129 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>HWB Contract Analysis Dashboard</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    :root{
+      --bg:#f8fafc;
+      --card:#fff;
+      --border:#e5e7eb;
+      --text:#0f172a;
+      --muted:#64748b;
+      --mono:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;
+      --primary:#3b82f6;
+      --primary-light:#dbeafe;
+      --success:#10b981;
+      --success-light:#d1fae5;
+      --warning:#f59e0b;
+      --warning-light:#fef3c7;
+      --error:#ef4444;
+      --error-light:#fee2e2;
+      --shadow:0 4px 6px -1px rgba(0,0,0,0.1),0 2px 4px -1px rgba(0,0,0,0.06);
+    }
+    
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      background:linear-gradient(135deg,#f8fafc 0%,#e2e8f0 100%);
+      color:var(--text);
+      font:14px/1.6 Inter,system-ui,Segoe UI,Roboto,Helvetica,Arial;
+      min-height:100vh;
+    }
+    
+    /* Header */
+    header{
+      background:#fff;
+      border-bottom:1px solid var(--border);
+      box-shadow:var(--shadow);
+      position:sticky;
+      top:0;
+      z-index:100;
+    }
+    
+    header .wrap,main .wrap{
+      max-width:1400px;
+      margin:0 auto;
+      padding:16px 20px;
+    }
+    
+    .header-content{
+      display:flex;
+      align-items:center;
+      gap:16px;
+      flex-wrap:wrap;
+    }
+    
+    h1{
+      font-size:24px;
+      margin:0;
+      color:var(--primary);
+      font-weight:700;
+    }
+    
+    .subtitle{
+      color:var(--muted);
+      font-size:14px;
+      margin:0;
+    }
+    
+    .header-actions{
+      display:flex;
+      gap:12px;
+      margin-left:auto;
+      flex-wrap:wrap;
+    }
+    
+    /* Main Layout */
+    .grid{
+      display:grid;
+      gap:24px;
+      grid-template-columns:1fr 1fr;
+      margin-bottom:24px;
+    }
+    
+    .full-width{
+      grid-column:1/-1;
+    }
+    
+    /* Cards */
+    .card{
+      background:var(--card);
+      border:1px solid var(--border);
+      border-radius:16px;
+      box-shadow:var(--shadow);
+      overflow:hidden;
+      transition:transform 0.2s ease,box-shadow 0.2s ease;
+    }
+    
+    .card:hover{
+      transform:translateY(-2px);
+      box-shadow:0 10px 25px -3px rgba(0,0,0,0.1),0 4px 6px -2px rgba(0,0,0,0.05);
+    }
+    
+    .card .head{
+      padding:16px 20px;
+      background:linear-gradient(135deg,#f8fafc 0%,#e2e8f0 100%);
+      border-bottom:1px solid var(--border);
+      color:var(--text);
+      font-weight:600;
+      font-size:16px;
+      display:flex;
+      align-items:center;
+      gap:8px;
+    }
+    
+    .card .body{
+      padding:20px;
+    }
+    
+    /* Icons */
+    .icon{
+      width:20px;
+      height:20px;
+      display:inline-block;
+      background-size:contain;
+      background-repeat:no-repeat;
+      background-position:center;
+    }
+    
+    .icon-upload{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2364748b'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12'/%3E%3C/svg%3E");}
+    .icon-send{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2364748b'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M12 19l9 2-9-18-9 18 9-2zm0 0v-8'/%3E%3C/svg%3E");}
+    .icon-policy{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2364748b'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z'/%3E%3C/svg%3E");}
+    .icon-alert{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2364748b'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z'/%3E%3C/svg%3E");}
+    
+    /* Buttons */
+    .btn{
+      padding:12px 16px;
+      border:1px solid var(--border);
+      border-radius:12px;
+      background:#fff;
+      cursor:pointer;
+      font-size:14px;
+      font-weight:500;
+      transition:all 0.2s ease;
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      text-decoration:none;
+      color:var(--text);
+    }
+    
+    .btn:hover{
+      background:var(--primary-light);
+      border-color:var(--primary);
+      color:var(--primary);
+    }
+    
+    .btn.primary{
+      background:var(--primary);
+      color:#fff;
+      border-color:var(--primary);
+    }
+    
+    .btn.primary:hover{
+      background:#2563eb;
+      transform:translateY(-1px);
+    }
+    
+    .btn.success{
+      background:var(--success);
+      color:#fff;
+      border-color:var(--success);
+    }
+    
+    .btn.warning{
+      background:var(--warning);
+      color:#fff;
+      border-color:var(--warning);
+    }
+    
+    .btn.error{
+      background:var(--error);
+      color:#fff;
+      border-color:var(--error);
+    }
+    
+    .btn.sm{
+      padding:8px 12px;
+      font-size:12px;
+    }
+    
+    /* Form Elements */
+    input,select,textarea{
+      padding:12px 16px;
+      border:1px solid var(--border);
+      border-radius:12px;
+      background:#fff;
+      font-size:14px;
+      transition:border-color 0.2s ease,box-shadow 0.2s ease;
+      width:100%;
+    }
+    
+    input:focus,select:focus,textarea:focus{
+      outline:none;
+      border-color:var(--primary);
+      box-shadow:0 0 0 3px var(--primary-light);
+    }
+    
+    /* Status Indicators */
+    .status{
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+      padding:4px 12px;
+      border-radius:20px;
+      font-size:12px;
+      font-weight:500;
+    }
+    
+    .status.success{
+      background:var(--success-light);
+      color:var(--success);
+    }
+    
+    .status.warning{
+      background:var(--warning-light);
+      color:var(--warning);
+    }
+    
+    .status.error{
+      background:var(--error-light);
+      color:var(--error);
+    }
+    
+    .status.info{
+      background:var(--primary-light);
+      color:var(--primary);
+    }
+    
+    /* Upload Area */
+    .upload-area{
+      border:2px dashed var(--border);
+      border-radius:16px;
+      padding:40px 20px;
+      text-align:center;
+      cursor:pointer;
+      transition:all 0.2s ease;
+      background:#fafbfc;
+    }
+    
+    .upload-area:hover{
+      border-color:var(--primary);
+      background:var(--primary-light);
+    }
+    
+    .upload-area.dragover{
+      border-color:var(--primary);
+      background:var(--primary-light);
+      transform:scale(1.02);
+    }
+    
+    /* Tables */
+    table{
+      width:100%;
+      border-collapse:collapse;
+      font-size:13px;
+    }
+    
+    th,td{
+      text-align:left;
+      padding:12px 16px;
+      border-top:1px solid var(--border);
+      vertical-align:top;
+    }
+    
+    thead th{
+      position:sticky;
+      top:0;
+      background:#f8fafc;
+      font-weight:600;
+      color:var(--text);
+      z-index:1;
+    }
+    
+    tbody tr:hover{
+      background:#f8fafc;
+    }
+    
+    /* Severity Pills */
+    .pill{
+      display:inline-flex;
+      align-items:center;
+      padding:4px 12px;
+      border-radius:20px;
+      font-size:11px;
+      font-weight:600;
+      text-transform:uppercase;
+      letter-spacing:0.5px;
+    }
+    
+    .pill.high{
+      background:var(--error-light);
+      color:var(--error);
+    }
+    
+    .pill.medium{
+      background:var(--warning-light);
+      color:var(--warning);
+    }
+    
+    .pill.low{
+      background:var(--success-light);
+      color:var(--success);
+    }
+    
+    /* Scrollable Areas */
+    .scroll{
+      max-height:400px;
+      overflow:auto;
+    }
+    
+    .scroll::-webkit-scrollbar{
+      width:6px;
+    }
+    
+    .scroll::-webkit-scrollbar-track{
+      background:#f1f5f9;
+    }
+    
+    .scroll::-webkit-scrollbar-thumb{
+      background:#cbd5e1;
+      border-radius:3px;
+    }
+    
+    .scroll::-webkit-scrollbar-thumb:hover{
+      background:#94a3b8;
+    }
+    
+    /* Filters */
+    .filters{
+      display:flex;
+      gap:12px;
+      flex-wrap:wrap;
+      margin-bottom:16px;
+      padding:16px;
+      background:#f8fafc;
+      border-radius:12px;
+    }
+    
+    .filter-group{
+      display:flex;
+      flex-direction:column;
+      gap:4px;
+      min-width:120px;
+    }
+    
+    .filter-label{
+      font-size:12px;
+      font-weight:500;
+      color:var(--muted);
+    }
+    
+    /* Help Text */
+    .help-text{
+      font-size:12px;
+      color:var(--muted);
+      margin-top:8px;
+      padding:8px 12px;
+      background:#f8fafc;
+      border-radius:8px;
+      border-left:3px solid var(--primary);
+    }
+    
+    /* Loading States */
+    .loading{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      color:var(--muted);
+    }
+    
+    .spinner{
+      width:16px;
+      height:16px;
+      border:2px solid var(--border);
+      border-top:2px solid var(--primary);
+      border-radius:50%;
+      animation:spin 1s linear infinite;
+    }
+    
+    @keyframes spin{
+      0%{transform:rotate(0deg)}
+      100%{transform:rotate(360deg)}
+    }
+    
+    /* Responsive */
+    @media (max-width:768px){
+      .grid{
+        grid-template-columns:1fr;
+      }
+      
+      .header-content{
+        flex-direction:column;
+        align-items:flex-start;
+      }
+      
+      .header-actions{
+        margin-left:0;
+        width:100%;
+        justify-content:flex-start;
+      }
+      
+      .filters{
+        flex-direction:column;
+      }
+      
+      .filter-group{
+        min-width:auto;
+      }
+    }
+    
+    /* Modal */
+    dialog{
+      border:none;
+      border-radius:20px;
+      padding:0;
+      max-width:95vw;
+      width:1000px;
+      box-shadow:0 25px 50px -12px rgba(0,0,0,0.25);
+    }
+    
+    dialog::backdrop{
+      background:rgba(0,0,0,0.5);
+      backdrop-filter:blur(4px);
+    }
+    
+    .modal-head{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      padding:20px 24px;
+      border-bottom:1px solid var(--border);
+      background:linear-gradient(135deg,#f8fafc 0%,#e2e8f0 100%);
+    }
+    
+    .modal-title{
+      font-size:18px;
+      font-weight:600;
+      color:var(--text);
+    }
+    
+    .modal-body{
+      height:80vh;
+      padding:0;
+    }
+    
+    .pdf{
+      width:100%;
+      height:100%;
+      border:0;
+    }
+    
+    /* Success/Error Messages */
+    .message{
+      padding:12px 16px;
+      border-radius:12px;
+      margin:12px 0;
+      font-size:14px;
+      display:flex;
+      align-items:center;
+      gap:8px;
+    }
+    
+    .message.success{
+      background:var(--success-light);
+      color:var(--success);
+      border:1px solid var(--success);
+    }
+    
+    .message.error{
+      background:var(--error-light);
+      color:var(--error);
+      border:1px solid var(--error);
+    }
+    
+    .message.info{
+      background:var(--primary-light);
+      color:var(--primary);
+      border:1px solid var(--primary);
+    }
+  </style>
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <div class="header-content">
+      <div>
+        <h1>🏛️ HWB Contract Analysis Dashboard</h1>
+        <p class="subtitle">Real-time policy validation and violation detection</p>
+      </div>
+      <div class="header-actions">
+        <button class="btn primary" id="refresh">
+          <span class="icon icon-refresh"></span>
+          Refresh All
+        </button>
+        <button class="btn" id="exportCsv">
+          <span class="icon icon-download"></span>
+          Export CSV
+        </button>
+        <a class="btn" id="openYaml" href="#" target="_blank" rel="noreferrer">
+          <span class="icon icon-policy"></span>
+          View YAML
+        </a>
+      </div>
+    </div>
+  </div>
+</header>
+
+<main>
+  <div class="wrap">
+    <!-- Upload Section -->
+    <div class="card full-width">
+      <div class="head">
+        <span class="icon icon-upload"></span>
+        Document Upload & Processing
+      </div>
+      <div class="body">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;">
+          <!-- Upload Document -->
+          <div>
+            <h3 style="margin:0 0 12px 0;font-size:16px;color:var(--text);">📄 Upload Contract</h3>
+            <div id="dropZone" class="upload-area">
+              <div style="font-size:18px;margin-bottom:8px;">📁</div>
+              <div style="font-weight:500;margin-bottom:4px;">Drag & drop a PDF here</div>
+              <div style="font-size:12px;color:var(--muted);">or click to choose a file</div>
+            </div>
+            <input type="file" id="docFile" accept="application/pdf" style="display:none" />
+            
+            <div style="margin-top:16px;">
+              <div class="filter-group">
+                <label class="filter-label">Or specify file path:</label>
+                <input id="docPath" placeholder="./docs/YourDoc.pdf" />
+              </div>
+              <button class="btn primary" id="ingestPathBtn" style="width:100%;margin-top:8px;">
+                <span class="icon icon-upload"></span>
+                Process by Path
+              </button>
+            </div>
+            
+            <div id="ingestStatus" class="help-text" style="margin-top:12px;display:none;"></div>
+          </div>
+          
+          <!-- Send Test Fact -->
+          <div>
+            <h3 style="margin:0 0 12px 0;font-size:16px;color:var(--text);">🧪 Test Fact Validation</h3>
+            <div class="filters">
+              <div class="filter-group">
+                <label class="filter-label">Event Type</label>
+                <select id="factType">
+                  <option value="fee_post">💰 Fee Posted</option>
+                  <option value="report_delivered">📊 Report Delivered</option>
+                  <option value="trade_allocated">📈 Trade Allocated</option>
+                  <option value="sideletter_ingested">📋 Side Letter</option>
+                </select>
+              </div>
+              <div class="filter-group">
+                <label class="filter-label">Subject</label>
+                <input id="factSubject" placeholder="e.g., Institution A" />
+              </div>
+              <div class="filter-group">
+                <label class="filter-label">Fee Rate (%)</label>
+                <input id="factFee" type="number" step="0.01" placeholder="e.g., 2.00" />
+              </div>
+              <div class="filter-group">
+                <label class="filter-label">Report Delay (days)</label>
+                <input id="factDelay" type="number" placeholder="e.g., 7" />
+              </div>
+              <div class="filter-group">
+                <label class="filter-label">Sector</label>
+                <input id="factSector" placeholder="e.g., SIC:7372" />
+              </div>
+            </div>
+            
+            <button class="btn primary" id="sendFact" style="width:100%;">
+              <span class="icon icon-send"></span>
+              Send Test Fact
+            </button>
+            
+            <div id="factResult" style="margin-top:12px;"></div>
+            
+            <div class="help-text">
+              💡 <strong>Tip:</strong> Fill only the fields relevant to your event type. The system will validate against your uploaded contracts.
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid">
+      <!-- Policy Rules -->
+      <div class="card">
+        <div class="head">
+          <span class="icon icon-policy"></span>
+          Policy Rules
+          <span id="rulesCount" class="status info" style="margin-left:auto;"></span>
+        </div>
+        <div class="body">
+          <div class="filters">
+            <div class="filter-group">
+              <label class="filter-label">Filter by Document</label>
+              <select id="docFilter">
+                <option value="">All Documents</option>
+              </select>
+            </div>
+            <div class="filter-group">
+              <label class="filter-label">Filter by Severity</label>
+              <select id="severityFilter">
+                <option value="">All Severities</option>
+                <option value="HIGH">🔴 High</option>
+                <option value="MEDIUM">🟡 Medium</option>
+                <option value="LOW">🟢 Low</option>
+              </select>
+            </div>
+          </div>
+          
+          <div class="scroll" style="max-height:400px;">
+            <table>
+              <thead>
+                <tr>
+                  <th>Rule ID</th>
+                  <th>Event</th>
+                  <th>Severity</th>
+                  <th>Document</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="rulesTable">
+                <tr><td colspan="5" style="text-align:center;padding:20px;color:var(--muted);">Loading rules...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Live Violations -->
+      <div class="card">
+        <div class="head">
+          <span class="icon icon-alert"></span>
+          Live Violations (SSE Stream)
+          <span id="violationsCount" class="status error" style="margin-left:auto;"></span>
+        </div>
+        <div class="body">
+          <div class="filters">
+            <div class="filter-group">
+              <label class="filter-label">Filter by Status</label>
+              <select id="statusFilter">
+                <option value="">All Statuses</option>
+                <option value="OPEN">🔴 Open</option>
+                <option value="ACK">🟡 Acknowledged</option>
+                <option value="RESOLVED">🟢 Resolved</option>
+              </select>
+            </div>
+            <div class="filter-group">
+              <label class="filter-label">Filter by Subject</label>
+              <input id="subjectFilter" placeholder="e.g., Institution A" />
+            </div>
+          </div>
+          
+          <div class="scroll" style="max-height:400px;">
+            <table>
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>Subject</th>
+                  <th>Severity</th>
+                  <th>Status</th>
+                  <th>Detected</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="violationsTable">
+                <tr><td colspan="6" style="text-align:center;padding:20px;color:var(--muted);">Loading violations...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Policy Details -->
+    <div class="card full-width">
+      <div class="head">
+        <span class="icon icon-policy"></span>
+        Policy Details (YAML)
+      </div>
+      <div class="body">
+        <div class="scroll" style="max-height:300px;background:#f8fafc;border-radius:8px;">
+          <pre id="yamlBox" style="padding:16px;margin:0;font-family:var(--mono);font-size:12px;line-height:1.5;">Loading policy...</pre>
+        </div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<!-- PDF Viewer Modal -->
+<dialog id="pdfModal">
+  <div class="modal-head">
+    <h3 class="modal-title">Document Viewer</h3>
+    <button class="btn sm" onclick="document.getElementById('pdfModal').close()">✕ Close</button>
+  </div>
+  <div class="modal-body">
+    <iframe id="pdfViewer" class="pdf" src=""></iframe>
+  </div>
+</dialog>
+
+<script>
+const API_BASE = "";
+let violations = [];
+let policy = {};
+let rules = [];
+let sseSource = null;
+
+// Utility functions
+function formatDate(dateStr) {
+  return new Date(dateStr).toLocaleString();
+}
+
+function showMessage(message, type = 'info') {
+  const resultDiv = document.getElementById('factResult');
+  resultDiv.innerHTML = `<div class="message ${type}">${message}</div>`;
+  setTimeout(() => {
+    resultDiv.innerHTML = '';
+  }, 5000);
+}
+
+function setStatus(elementId, message, type = 'info') {
+  const element = document.getElementById(elementId);
+  element.textContent = message;
+  element.className = `status ${type}`;
+  element.style.display = message ? 'inline-flex' : 'none';
+}
+
+// Load policy rules
+async function loadPolicy() {
+  try {
+    const response = await fetch(API_BASE + "/policy?format=json");
+    policy = await response.json();
+    rules = policy.rules || [];
+    
+    // Update rules count
+    setStatus('rulesCount', `${rules.length} rules`, 'info');
+    
+    // Update document filter
+    const docFilter = document.getElementById('docFilter');
+    const docs = [...new Set(rules.map(r => r.evidence?.doc).filter(Boolean))];
+    docFilter.innerHTML = '<option value="">All Documents</option>' + 
+      docs.map(doc => `<option value="${doc}">${doc}</option>`).join('');
+    
+    renderRules();
+    renderYaml();
+  } catch (error) {
+    console.error('Failed to load policy:', error);
+    setStatus('rulesCount', 'Error loading', 'error');
+  }
+}
+
+// Load violations
+async function loadViolations() {
+  try {
+    const response = await fetch(API_BASE + "/violations");
+    violations = await response.json();
+    
+    // Update violations count
+    const openCount = violations.filter(v => v.status === 'OPEN').length;
+    setStatus('violationsCount', `${openCount} open`, openCount > 0 ? 'error' : 'success');
+    
+    renderViolations();
+  } catch (error) {
+    console.error('Failed to load violations:', error);
+    setStatus('violationsCount', 'Error loading', 'error');
+  }
+}
+
+// Render rules table
+function renderRules() {
+  const table = document.getElementById('rulesTable');
+  const docFilter = document.getElementById('docFilter').value;
+  const severityFilter = document.getElementById('severityFilter').value;
+  
+  let filteredRules = rules;
+  if (docFilter) filteredRules = filteredRules.filter(r => r.evidence?.doc === docFilter);
+  if (severityFilter) filteredRules = filteredRules.filter(r => r.severity === severityFilter);
+  
+  if (filteredRules.length === 0) {
+    table.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:20px;color:var(--muted);">No rules found</td></tr>';
+    return;
+  }
+  
+  table.innerHTML = filteredRules.map(rule => `
+    <tr>
+      <td><code style="font-size:11px;">${rule.id}</code></td>
+      <td>${rule.on_events?.join(', ') || 'N/A'}</td>
+      <td><span class="pill ${rule.severity?.toLowerCase() || 'medium'}">${rule.severity || 'MEDIUM'}</span></td>
+      <td>
+        ${rule.evidence?.doc ? 
+          `<a href="#" onclick="viewPdf('${rule.evidence.doc}')" style="color:var(--primary);text-decoration:none;">${rule.evidence.doc}</a>` : 
+          'N/A'
+        }
+      </td>
+      <td>
+        <button class="btn sm" onclick="viewRuleDetails('${rule.id}')">View</button>
+      </td>
+    </tr>
+  `).join('');
+}
+
+// Render violations table
+function renderViolations() {
+  const table = document.getElementById('violationsTable');
+  const statusFilter = document.getElementById('statusFilter').value;
+  const subjectFilter = document.getElementById('subjectFilter').value.toLowerCase();
+  
+  let filteredViolations = violations;
+  if (statusFilter) filteredViolations = filteredViolations.filter(v => v.status === statusFilter);
+  if (subjectFilter) filteredViolations = filteredViolations.filter(v => 
+    v.subject?.toLowerCase().includes(subjectFilter)
+  );
+  
+  if (filteredViolations.length === 0) {
+    table.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:20px;color:var(--muted);">No violations found</td></tr>';
+    return;
+  }
+  
+  table.innerHTML = filteredViolations.map(violation => `
+    <tr>
+      <td><code style="font-size:11px;">${violation.id}</code></td>
+      <td>${violation.subject || 'N/A'}</td>
+      <td><span class="pill ${violation.severity?.toLowerCase() || 'medium'}">${violation.severity || 'MEDIUM'}</span></td>
+      <td>
+        <select class="btn sm" onchange="updateViolationStatus('${violation.id}', this.value)">
+          <option value="OPEN" ${violation.status === 'OPEN' ? 'selected' : ''}>🔴 Open</option>
+          <option value="ACK" ${violation.status === 'ACK' ? 'selected' : ''}>🟡 Ack</option>
+          <option value="RESOLVED" ${violation.status === 'RESOLVED' ? 'selected' : ''}>🟢 Resolved</option>
+        </select>
+      </td>
+      <td>${formatDate(violation.detected_at)}</td>
+      <td>
+        <button class="btn sm" onclick="viewViolationDetails('${violation.id}')">View</button>
+      </td>
+    </tr>
+  `).join('');
+}
+
+// Render YAML
+function renderYaml() {
+  const yamlBox = document.getElementById('yamlBox');
+  if (Object.keys(policy).length === 0) {
+    yamlBox.textContent = 'No policy loaded';
+    return;
+  }
+  yamlBox.textContent = JSON.stringify(policy, null, 2);
+}
+
+// Update violation status
+async function updateViolationStatus(vid, status) {
+  try {
+    const response = await fetch(API_BASE + `/violations/${vid}/status`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status })
+    });
+    
+    if (response.ok) {
+      // Update local state
+      const violation = violations.find(v => v.id === vid);
+      if (violation) violation.status = status;
+      renderViolations();
+      showMessage(`Violation ${vid} status updated to ${status}`, 'success');
+    }
+  } catch (error) {
+    console.error('Failed to update violation status:', error);
+    showMessage('Failed to update violation status', 'error');
+  }
+}
+
+// View PDF
+function viewPdf(filename) {
+  const modal = document.getElementById('pdfModal');
+  const viewer = document.getElementById('pdfViewer');
+  viewer.src = API_BASE + `/docs/${filename}#page=1`;
+  modal.showModal();
+}
+
+// View rule details
+function viewRuleDetails(ruleId) {
+  const rule = rules.find(r => r.id === ruleId);
+  if (rule) {
+    alert(`Rule Details:\n\nID: ${rule.id}\nEvent: ${rule.on_events?.join(', ')}\nSeverity: ${rule.severity}\nDescription: ${rule.comments || 'N/A'}\n\nEvidence:\n${rule.evidence?.text_snippet || 'N/A'}`);
+  }
+}
+
+// View violation details
+function viewViolationDetails(violationId) {
+  const violation = violations.find(v => v.id === violationId);
+  if (violation) {
+    alert(`Violation Details:\n\nID: ${violation.id}\nSubject: ${violation.subject}\nSeverity: ${violation.severity}\nStatus: ${violation.status}\n\nSummary:\n${violation.summary || 'N/A'}\n\nExpected: ${JSON.stringify(violation.expected)}\nActual: ${JSON.stringify(violation.actual)}`);
+  }
+}
+
+// Upload document functionality
+const dropZone = document.getElementById("dropZone");
+const docFile = document.getElementById("docFile");
+const docPath = document.getElementById("docPath");
+const ingestPathBtn = document.getElementById("ingestPathBtn");
+const ingestStatus = document.getElementById("ingestStatus");
+
+function setIngestStatus(message, type = 'info') {
+  ingestStatus.textContent = message;
+  ingestStatus.className = `help-text ${type}`;
+  ingestStatus.style.display = message ? 'block' : 'none';
+}
+
+async function uploadDoc(file) {
+  const fd = new FormData();
+  fd.append("file", file);
+  setIngestStatus("🔄 Uploading and processing document...", 'info');
+  
+  try {
+    const r = await fetch(API_BASE + "/api/ingest", { method: "POST", body: fd });
+    if (!r.ok) throw new Error(await r.text());
+    const j = await r.json();
+    setIngestStatus(`✅ Successfully processed: ${j.doc}`, 'success');
+    await loadPolicy();
+  } catch (e) {
+    setIngestStatus(`❌ Upload failed: ${e.message}`, 'error');
+  }
+}
+
+// Event listeners for upload
+dropZone.addEventListener("click", () => docFile.click());
+dropZone.addEventListener("dragover", (e) => {
+  e.preventDefault();
+  dropZone.classList.add('dragover');
+});
+dropZone.addEventListener("dragleave", () => {
+  dropZone.classList.remove('dragover');
+});
+dropZone.addEventListener("drop", (e) => {
+  e.preventDefault();
+  dropZone.classList.remove('dragover');
+  const f = e.dataTransfer.files?.[0];
+  if (f) uploadDoc(f);
+});
+
+docFile.addEventListener("change", () => {
+  const f = docFile.files?.[0];
+  if (f) uploadDoc(f);
+});
+
+ingestPathBtn.addEventListener("click", async () => {
+  const p = docPath.value.trim();
+  if (!p) {
+    setIngestStatus("❌ Please provide a file path", 'error');
+    return;
+  }
+  
+  setIngestStatus("🔄 Processing document by path...", 'info');
+  try {
+    const r = await fetch(API_BASE + "/api/ingest", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ path: p })
+    });
+    if (!r.ok) throw new Error(await r.text());
+    const j = await r.json();
+    setIngestStatus(`✅ Successfully processed: ${j.doc}`, 'success');
+    await loadPolicy();
+  } catch (e) {
+    setIngestStatus(`❌ Path processing failed: ${e.message}`, 'error');
+  }
+});
+
+// Send test fact functionality
+const factType = document.getElementById("factType");
+const factSubject = document.getElementById("factSubject");
+const factFee = document.getElementById("factFee");
+const factDelay = document.getElementById("factDelay");
+const factSector = document.getElementById("factSector");
+const factNotice = document.getElementById("factNotice");
+const sendFactBtn = document.getElementById("sendFact");
+const factResult = document.getElementById("factResult");
+
+function buildPayload() {
+  const payload = {};
+  const subj = factSubject.value.trim();
+  if (subj) payload.subject = subj;
+  if (factFee.value.trim() !== "") payload.fee_rate = parseFloat(factFee.value);
+  if (factDelay.value.trim() !== "") payload.report_delay_days = parseInt(factDelay.value, 10);
+  if (factSector.value.trim() !== "") payload.sector = factSector.value.trim();
+  if (factNotice && factNotice.value.trim() !== "") payload.notice_sent = (factNotice.value === "true");
+  return payload;
+}
+
+sendFactBtn.addEventListener("click", async () => {
+  const type = factType.value;
+  const payload = buildPayload();
+  
+  if (!payload.subject) {
+    showMessage("❌ Please provide a subject", 'error');
+    return;
+  }
+  
+  factResult.innerHTML = '<div class="message info"><span class="spinner"></span> Sending test fact...</div>';
+  
+  try {
+    const r = await fetch(API_BASE + "/facts", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ type, payload })
+    });
+    const j = await r.json();
+    const vcount = (j.violations || []).length;
+    
+    if (vcount > 0) {
+      showMessage(`🚨 Found ${vcount} violation(s)! Check the violations table for details.`, 'error');
+    } else {
+      showMessage(`✅ No violations detected. Fact validated successfully!`, 'success');
+    }
+    
+    // Update violations list
+    (j.violations || []).forEach(v => {
+      if (!violations.find(existing => existing.id === v.id)) {
+        violations.push(v);
+      }
+    });
+    renderViolations();
+    
+  } catch (e) {
+    showMessage(`❌ Error sending fact: ${e.message}`, 'error');
+  }
+});
+
+// Filter event listeners
+document.getElementById('docFilter').addEventListener('change', renderRules);
+document.getElementById('severityFilter').addEventListener('change', renderRules);
+document.getElementById('statusFilter').addEventListener('change', renderViolations);
+document.getElementById('subjectFilter').addEventListener('input', renderViolations);
+
+// Export CSV
+document.getElementById('exportCsv').addEventListener('click', () => {
+  if (violations.length === 0) {
+    showMessage('No violations to export', 'warning');
+    return;
+  }
+  
+  const headers = ['ID', 'Rule ID', 'Subject', 'Severity', 'Status', 'Detected At', 'Summary'];
+  const rows = violations.map(v => [
+    v.id, v.rule_id, v.subject, v.severity, v.status, v.detected_at, v.summary
+  ]);
+  
+  const csv = [headers, ...rows].map(row => 
+    row.map(cell => `"${(cell || '').toString().replace(/"/g, '""')}"`).join(',')
+  ).join('\n');
+  
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `violations_${new Date().toISOString().split('T')[0]}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+  
+  showMessage('CSV exported successfully!', 'success');
+});
+
+// Refresh button
+document.getElementById('refresh').addEventListener('click', async () => {
+  showMessage('🔄 Refreshing all data...', 'info');
+  await Promise.all([loadPolicy(), loadViolations()]);
+  showMessage('✅ Data refreshed successfully!', 'success');
+});
+
+// Open YAML
+document.getElementById('openYaml').addEventListener('click', () => {
+  const yamlUrl = API_BASE + '/policy?format=yaml';
+  window.open(yamlUrl, '_blank');
+});
+
+// SSE connection
+function connectSSE() {
+  if (sseSource) sseSource.close();
+  
+  sseSource = new EventSource(API_BASE + "/violations/stream?tail=true");
+  sseSource.onmessage = (event) => {
+    try {
+      const violation = JSON.parse(event.data);
+      if (!violations.find(v => v.id === violation.id)) {
+        violations.push(violation);
+        renderViolations();
+        
+        // Show notification
+        showMessage(`🚨 New violation detected: ${violation.subject}`, 'error');
+      }
+    } catch (e) {
+      console.error('SSE parse error:', e);
+    }
+  };
+  
+  sseSource.onerror = () => {
+    console.log('SSE connection lost, reconnecting...');
+    setTimeout(connectSSE, 3000);
+  };
+}
+
+// Initialize
+async function init() {
+  showMessage('🚀 Initializing HWB Dashboard...', 'info');
+  await loadPolicy();
+  await loadViolations();
+  connectSSE();
+  showMessage('✅ Dashboard ready! Upload documents or send test facts to get started.', 'success');
+}
+
+// Start the application
+init();
+</script>
+</body>
+</html>

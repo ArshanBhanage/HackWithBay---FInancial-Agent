@@ -1,0 +1,13 @@
+pathway
+langgraph
+langchain
+anthropic
+pdfminer.six
+fastapi
+sse-starlette
+uvicorn
+python-dotenv
+requests
+PyYAML
+pydantic
+python-multipart
