@@ -1,4 +1,4 @@
-# HWB Contract Analysis & Policy Validation System
+# Driftwise
 
 A comprehensive system for monitoring financial contract changes and detecting policy violations using Claude Sonnet 4.5, LangGraph, LandingAI ADE, and Pathway. This system continuously processes financial contracts (loan agreements, insurance policies, regulatory filings) and automatically generates machine-enforceable validation rules for real-time compliance monitoring.
 
